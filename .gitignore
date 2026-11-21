@@ -1,0 +1,17 @@
+# Sistem & editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Rahasia & data lokal (backend/ dan frontend/ punya .gitignore sendiri juga)
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.log
