@@ -4,6 +4,14 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # Paksa HTTPS (tombol "Force HTTPS" aaPanel hanya berlaku untuk Nginx, bukan LiteSpeed).
+  # .well-known dikecualikan supaya perpanjangan SSL Let's Encrypt tetap jalan.
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)
+  RewriteCond %{REQUEST_URI} !^/\.well-known/
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_URI} !^/\.well-known/
   RewriteCond %{REQUEST_FILENAME} !-f

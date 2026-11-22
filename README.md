@@ -194,7 +194,18 @@ Repo **private**: GitHub meminta login saat `git clone`. Username = `studiopoony
   ```
 - **SSL** → *Let's Encrypt* → Apply → **Force HTTPS**.
 
-**Web server OpenLiteSpeed** (cek: `ss -ltnp | grep ':80 '` menampilkan `litespeed`): pengaturan *URL rewrite* di atas tidak dipakai — LiteSpeed membaca `.htaccess` yang sudah ada di `backend/public` dan `frontend/dist`. Setelah menambah/mengubah situs, **reload OpenLiteSpeed** (App Store → OpenLiteSpeed → Setting → Reload, atau `/usr/local/lsws/bin/lswsctrl reload`) sebelum meminta SSL, kalau tidak situs baru belum dikenali (404/403).
+**Web server OpenLiteSpeed** (cek: `ss -ltnp | grep ':80 '` menampilkan `litespeed`): pengaturan *URL rewrite* di atas tidak dipakai — LiteSpeed membaca `.htaccess` yang sudah ada di `backend/public` dan `frontend/dist`. Setelah menambah situs, **pastikan LiteSpeed mengenalinya** sebelum meminta SSL (kalau tidak: 404/403 dan verifikasi SSL gagal). Di VPS kita, config utama `/usr/local/lsws/conf/httpd_config.conf` menulis listener langsung (blok `listener Default80 {` & `listener SSL443 {`), dan aaPanel tidak menambahkan situs baru ke sana. Perbaikannya (sudah dikerjakan 22 Nov 2026 untuk kedua domain; ulangi kalau domain diganti):
+```bash
+C=/usr/local/lsws/conf/httpd_config.conf; cp $C $C.bak-$(date +%Y%m%d%H%M)
+# 1) muat file vhost situsnya
+for s in api-warehouse warehouse; do f=/www/server/panel/vhost/openlitespeed/$s.studiopoonya.net.conf; grep -q "include $f" $C || printf '
+include %s
+' "$f" >> $C; done
+# 2) daftarkan domain di listener port 80 & 443
+for d in api-warehouse.studiopoonya.net warehouse.studiopoonya.net; do grep -qE "^\s*map\s+$d\s" $C || sed -i -e "/^listener Default80 {/a\  map $d $d" -e "/^listener SSL443 {/a\  map $d $d" $C; done
+/usr/local/lsws/bin/lswsctrl restart   # graceful, situs lain tidak terputus
+```
+Tombol **Force HTTPS** aaPanel juga hanya untuk Nginx; pengalihan http → https untuk aplikasi sudah ada di `frontend/public/.htaccess`.
 
 Cek: `https://api-warehouse.studiopoonya.net` menampilkan `{"app":"Poonya Warehouse API", ...}`, lalu buka `https://warehouse.studiopoonya.net` dan login.
 
