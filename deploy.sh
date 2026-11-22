@@ -119,7 +119,15 @@ if [ -n "$NODE_BIN" ]; then
       echo "npm ci gagal, mencoba npm install..."
       npm install --no-audit --no-fund --no-package-lock
     fi
-    VITE_API_URL="$API_URL/api" npm run build
+    # build ke folder sementara: aaPanel menaruh .user.ini terkunci (chattr +i) di frontend/dist,
+    # sehingga vite tidak bisa mengosongkan dist langsung
+    rm -rf dist-new
+    VITE_API_URL="$API_URL/api" npm run build -- --outDir dist-new --emptyOutDir
+    mkdir -p dist
+    # ganti isi lama, kecuali file milik aaPanel (.user.ini) & verifikasi SSL (.well-known)
+    find dist -mindepth 1 -maxdepth 1 ! -name .user.ini ! -name .well-known -exec rm -rf {} +
+    cp -r dist-new/. dist/
+    rm -rf dist-new
   )
 elif [ -f frontend/dist/index.html ]; then
   echo "Node tidak ada; memakai frontend/dist yang sudah di-upload."
