@@ -24,9 +24,9 @@ WEB_USER="${WEB_USER:-www}"          # user web server aaPanel
 step() { printf '\n\033[1;32m==> %s\033[0m\n' "$*"; }
 fail() { printf '\n\033[1;31mGAGAL: %s\033[0m\n' "$*"; exit 1; }
 
-# --- PHP: pakai PHP aaPanel terbaru yang ada (8.4 / 8.3 / 8.2) --------------------
+# --- PHP aaPanel: utamakan 8.3 (sama dengan PHP website & cron di README), lalu 8.4 / 8.2 ----
 if [ -z "${PHP_BIN:-}" ]; then
-  for v in 84 83 82; do
+  for v in 83 84 82; do
     if [ -x "/www/server/php/$v/bin/php" ]; then PHP_BIN="/www/server/php/$v/bin/php"; break; fi
   done
 fi
@@ -111,7 +111,16 @@ fi
 if [ -n "$NODE_BIN" ]; then
   export PATH="$(dirname "$NODE_BIN"):$PATH"
   echo "Node $(node -v)"
-  (cd frontend && npm ci --no-audit --no-fund && VITE_API_URL="$API_URL/api" npm run build)
+  (
+    cd frontend
+    # npm ci = versi persis sesuai package-lock.json. Kalau versi npm server menolak lock file
+    # (beda versi npm), pakai npm install tanpa mengubah package-lock.json supaya git pull tetap bersih.
+    if ! npm ci --no-audit --no-fund; then
+      echo "npm ci gagal, mencoba npm install..."
+      npm install --no-audit --no-fund --no-package-lock
+    fi
+    VITE_API_URL="$API_URL/api" npm run build
+  )
 elif [ -f frontend/dist/index.html ]; then
   echo "Node tidak ada; memakai frontend/dist yang sudah di-upload."
 else
