@@ -194,6 +194,8 @@ Repo **private**: GitHub meminta login saat `git clone`. Username = `studiopoony
   ```
 - **SSL** → *Let's Encrypt* → Apply → **Force HTTPS**.
 
+**Web server OpenLiteSpeed** (cek: `ss -ltnp | grep ':80 '` menampilkan `litespeed`): pengaturan *URL rewrite* di atas tidak dipakai — LiteSpeed membaca `.htaccess` yang sudah ada di `backend/public` dan `frontend/dist`. Setelah menambah/mengubah situs, **reload OpenLiteSpeed** (App Store → OpenLiteSpeed → Setting → Reload, atau `/usr/local/lsws/bin/lswsctrl reload`) sebelum meminta SSL, kalau tidak situs baru belum dikenali (404/403).
+
 Cek: `https://api-warehouse.studiopoonya.net` menampilkan `{"app":"Poonya Warehouse API", ...}`, lalu buka `https://warehouse.studiopoonya.net` dan login.
 
 ### 5. Tugas terjadwal (aaPanel → Cron)
