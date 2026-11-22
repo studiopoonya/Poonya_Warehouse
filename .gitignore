@@ -11,6 +11,7 @@ desktop.ini
 .env
 .env.*
 !.env.example
+!frontend/.env.production
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm

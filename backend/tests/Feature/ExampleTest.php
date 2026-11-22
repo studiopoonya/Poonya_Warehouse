@@ -2,18 +2,19 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
-    /**
-     * A basic test example.
-     */
-    public function test_the_application_returns_a_successful_response(): void
+    /** API tanpa login ditolak dengan 401 (bukan dialihkan ke halaman frontend) */
+    public function test_api_requires_login(): void
     {
-        $response = $this->get('/');
+        $this->getJson('/api/auth/me')->assertStatus(401);
+    }
 
-        $response->assertStatus(200);
+    /** Alamat /api yang tidak ada tetap 404 JSON, tidak tertangkap rute frontend */
+    public function test_unknown_api_route_is_not_served_by_frontend(): void
+    {
+        $this->getJson('/api/tidak-ada')->assertStatus(404);
     }
 }

@@ -147,24 +147,74 @@ Supaya terkirim, isi SMTP di `backend/.env`. Contoh dengan **Gmail**:
 
 Penerima default adalah email semua akun owner. Ganti `admin@poonya.test` dengan email aslimu di menu **Pengguna**, atau tambahkan alamat lain di Pengaturan.
 Email dikirim setelah respons ke pengguna selesai, jadi aplikasi tidak terasa lambat. Kalau email gagal terkirim, transaksi stok tetap tersimpan dan error-nya dicatat di log.
-`FRONTEND_URL` di `.env` dipakai untuk link "Lihat laporan" di dalam email; isi dengan alamat aplikasi saat online.
+`FRONTEND_URL` di `.env` dipakai untuk link "Lihat laporan" & reset password di dalam email, dan untuk izin CORS (`https://warehouse.studiopoonya.net` saat online).
 
-## Pasang online (production)
+## Pasang online (VPS aaPanel)
 
-1. **Server**: VPS atau hosting yang mendukung PHP 8.2+ (ekstensi pdo_mysql, zip, gd, xml, mbstring) dan Composer. Node hanya dibutuhkan untuk build frontend (bisa dilakukan di laptop).
-2. **Database MySQL**: buat database kosong, isi `backend/.env` (lihat bagian "Pakai MySQL"), lalu:
-   ```bash
-   composer install --no-dev --optimize-autoloader
-   php artisan key:generate
-   php artisan migrate --seed --force
-   php artisan config:cache && php artisan route:cache
-   ```
-   Set juga `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://domainmu`, dan `ADMIN_PASSWORD` yang kuat sebelum seed.
-3. **Frontend**: `cd frontend && npm ci && npm run build`, lalu upload isi `frontend/dist`.
-4. **Web server** (Nginx/Apache): arahkan domain ke `frontend/dist` (dengan fallback ke `index.html` untuk semua path), dan teruskan `/api` ke `backend/public`. Jadi frontend dan API ada di domain yang sama, tanpa setting CORS.
-5. **HTTPS**: pasang sertifikat gratis Let's Encrypt (`certbot --nginx`). HTTPS wajib supaya login aman dan aplikasi bisa dipasang di layar utama HP.
-6. **Cron** untuk backup & tugas terjadwal: `* * * * * cd /path/backend && php artisan schedule:run >> /dev/null 2>&1`
-7. Folder `backend/storage` dan `backend/bootstrap/cache` harus bisa ditulis oleh web server.
+| | Domain | Folder di server |
+|---|---|---|
+| Aplikasi (frontend) | `https://warehouse.studiopoonya.net` | `/www/wwwroot/poonya-warehouse/frontend/dist` |
+| API (backend) | `https://api-warehouse.studiopoonya.net` | `/www/wwwroot/poonya-warehouse/backend` (running directory `/public`) |
+
+Semua langkah instal/update dikerjakan `deploy.sh` (composer, `.env`, database + data awal, build frontend, cache, izin file). Aman diulang: database, `.env`, dan backup tidak pernah ditimpa.
+
+### 1. DNS
+Di pengelola DNS `studiopoonya.net`, buat dua **A record** ke IP VPS:
+`warehouse` → `103.178.153.161` dan `api-warehouse` → `103.178.153.161`.
+
+### 2. Siapkan aaPanel (sekali)
+- **App Store → PHP 8.3** (atau 8.2+). Ekstensi yang dibutuhkan dicek otomatis oleh `deploy.sh`; kalau ada yang kurang, pasang di *PHP → Setting → Install extensions* (biasanya `fileinfo`).
+- **App Store → Node.js version manager** → install **Node 22** (untuk build frontend).
+
+### 3. Ambil kode & jalankan deploy (aaPanel → Terminal, sebagai root)
+```bash
+cd /www/wwwroot
+git clone https://github.com/studiopoonya/Poonya_Warehouse.git poonya-warehouse
+git config --global --add safe.directory /www/wwwroot/poonya-warehouse
+cd poonya-warehouse
+ADMIN_EMAIL=emailmu@gmail.com ADMIN_PASSWORD='password-kuat' bash deploy.sh
+```
+Repo **private**: GitHub meminta login saat `git clone`. Username = `studiopoonya`, password = **Personal access token** (GitHub → Settings → Developer settings → Fine-grained tokens → akses *Contents: Read-only* ke repo ini).
+
+### 4. Buat dua website (aaPanel → Website → Add site)
+**a. `api-warehouse.studiopoonya.net`**
+- Root directory: `/www/wwwroot/poonya-warehouse/backend` · PHP: **8.3** · Database: tidak usah.
+- Setelah dibuat, buka *Conf* situsnya:
+  - **Site directory** → *Running directory* = **`/public`** → Save.
+  - **URL rewrite** → pilih preset **`laravel5`** → Save.
+  - **SSL** → *Let's Encrypt* → centang domainnya → Apply, lalu aktifkan **Force HTTPS**.
+
+**b. `warehouse.studiopoonya.net`**
+- Root directory: `/www/wwwroot/poonya-warehouse/frontend/dist` · PHP: **Static**.
+- *Conf* → **URL rewrite** → isi lalu Save (supaya refresh di `/events/12` dll. tidak 404):
+  ```nginx
+  location / {
+      try_files $uri $uri/ /index.html;
+  }
+  ```
+- **SSL** → *Let's Encrypt* → Apply → **Force HTTPS**.
+
+Cek: `https://api-warehouse.studiopoonya.net` menampilkan `{"app":"Poonya Warehouse API", ...}`, lalu buka `https://warehouse.studiopoonya.net` dan login.
+
+### 5. Tugas terjadwal (aaPanel → Cron)
+Tambah *Shell Script*, periode **setiap 1 menit**:
+```bash
+sudo -u www /www/server/php/83/bin/php -d disable_functions= /www/wwwroot/poonya-warehouse/backend/artisan schedule:run >> /dev/null 2>&1
+```
+Ini menjalankan backup otomatis 02.00 WIB dan pengingat event H-1 17.00 WIB (jam mengikuti `APP_TIMEZONE`, bukan jam server). `sudo -u www` penting supaya file log/backup dimiliki user web server.
+
+### 6. Email (SMTP Gmail)
+Isi `MAIL_*` di `backend/.env` (lihat bagian **Email notifikasi**, ubah `MAIL_MAILER=smtp`) lewat aaPanel → Files, lalu jalankan lagi `bash deploy.sh` (supaya cache konfigurasi diperbarui). Uji di aplikasi: **Pengaturan → Notifikasi email → Kirim email tes**.
+
+### Update aplikasi
+```bash
+cd /www/wwwroot/poonya-warehouse && git pull && bash deploy.sh
+```
+
+### Catatan
+- `deploy.sh` memakai `-d disable_functions=` hanya untuk perintah di skrip itu (Composer/Artisan butuh `putenv`/`proc_open` yang dimatikan aaPanel). Pengaturan PHP website lain tidak diubah.
+- Ganti domain: `FRONTEND_URL=https://... API_URL=https://... bash deploy.sh` (untuk instalasi yang sudah ada, ubah juga `FRONTEND_URL`, `APP_URL`, `CORS_ALLOWED_ORIGINS` di `backend/.env`).
+- Mau pakai MySQL alih-alih SQLite: lihat bagian **Pakai MySQL** (backup dari aplikasi khusus SQLite).
 
 ## Fitur
 
