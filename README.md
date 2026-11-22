@@ -198,9 +198,7 @@ Repo **private**: GitHub meminta login saat `git clone`. Username = `studiopoony
 ```bash
 C=/usr/local/lsws/conf/httpd_config.conf; cp $C $C.bak-$(date +%Y%m%d%H%M)
 # 1) muat file vhost situsnya
-for s in api-warehouse warehouse; do f=/www/server/panel/vhost/openlitespeed/$s.studiopoonya.net.conf; grep -q "include $f" $C || printf '
-include %s
-' "$f" >> $C; done
+for s in api-warehouse warehouse; do f=/www/server/panel/vhost/openlitespeed/$s.studiopoonya.net.conf; grep -q "include $f" $C || printf '\ninclude %s\n' "$f" >> $C; done
 # 2) daftarkan domain di listener port 80 & 443
 for d in api-warehouse.studiopoonya.net warehouse.studiopoonya.net; do grep -qE "^\s*map\s+$d\s" $C || sed -i -e "/^listener Default80 {/a\  map $d $d" -e "/^listener SSL443 {/a\  map $d $d" $C; done
 /usr/local/lsws/bin/lswsctrl restart   # graceful, situs lain tidak terputus
